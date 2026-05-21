@@ -13,7 +13,7 @@ export const useCashfree = () => {
       const order = res.data;
 
       const cashfree = (window as any).Cashfree({
-        mode: "sandbox"
+        mode: "production"
       });
 
       cashfree.checkout({

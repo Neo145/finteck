@@ -9,7 +9,7 @@ from app.models.wallet import Wallet, TransactionCategory
 from app.models.payment import Payment, PaymentStatus, PaymentGateway
 from app.services.wallet_service import get_wallet_service, credit_wallet_service
 
-CASHFREE_BASE_URL = "https://sandbox.cashfree.com/pg"
+CASHFREE_BASE_URL = "https://api.cashfree.com/pg"
 CASHFREE_API_VERSION = "2023-08-01"
 
 
