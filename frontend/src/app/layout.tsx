@@ -14,10 +14,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css"
-        />
+        <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
         <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
       </head>
       <body>{children}</body>

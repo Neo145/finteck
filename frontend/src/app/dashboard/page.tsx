@@ -3,23 +3,25 @@ import { useEffect, useState } from "react";
 import { useWalletStore } from "@/store/walletStore";
 import { useAuthStore } from "@/store/authStore";
 import { useRazorpay } from "@/hooks/useRazorpay";
+import { useCashfree } from "@/hooks/useCashfree";
 
 const quickActions = [
-  { label: "Bus Booking", icon: "🚌", color: "#6366f1", bg: "rgba(99,102,241,0.1)", href: "/dashboard/bus" },
-  { label: "Movies", icon: "🎬", color: "#ec4899", bg: "rgba(236,72,153,0.1)", href: "/dashboard/movies" },
-  { label: "Recharge", icon: "📱", color: "#10b981", bg: "rgba(16,185,129,0.1)", href: "/dashboard/recharge" },
-  { label: "Bill Pay", icon: "🧾", color: "#f59e0b", bg: "rgba(245,158,11,0.1)", href: "/dashboard/bills" },
+  { label: "Bus Booking", icon: "🚌", bg: "rgba(99,102,241,0.1)", href: "/dashboard/bus" },
+  { label: "Movies", icon: "🎬", bg: "rgba(236,72,153,0.1)", href: "/dashboard/movies" },
+  { label: "Recharge", icon: "📱", bg: "rgba(16,185,129,0.1)", href: "/dashboard/recharge" },
+  { label: "Bill Pay", icon: "🧾", bg: "rgba(245,158,11,0.1)", href: "/dashboard/bills" },
 ];
 
 export default function DashboardPage() {
   const { wallet, transactions, total, fetchWallet, fetchTransactions, simulateAddMoney } = useWalletStore();
   const { user } = useAuthStore();
-  const { initiatePayment } = useRazorpay();
+  const { initiatePayment: initiateRazorpay } = useRazorpay();
+  const { initiatePayment: initiateCashfree } = useCashfree();
 
   const [showAddMoney, setShowAddMoney] = useState(false);
   const [addAmount, setAddAmount] = useState("");
   const [adding, setAdding] = useState(false);
-  const [useReal, setUseReal] = useState(true);
+  const [payMode, setPayMode] = useState(0);
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [dateStr, setDateStr] = useState("");
 
@@ -37,18 +39,19 @@ export default function DashboardPage() {
     setAdding(true);
     setMsg(null);
     try {
-      if (useReal) {
-        await initiatePayment({
-          amount,
-          onSuccess: async () => {
-            await fetchWallet();
-            await fetchTransactions();
-            setAddAmount("");
-            setShowAddMoney(false);
-            setMsg({ text: "Payment successful! Wallet credited.", type: "success" });
-          },
-          onError: () => setMsg({ text: "Payment failed. Please try again.", type: "error" }),
-        });
+      const onSuccess = async () => {
+        await fetchWallet();
+        await fetchTransactions();
+        setAddAmount("");
+        setShowAddMoney(false);
+        setMsg({ text: "Payment successful! Wallet credited.", type: "success" });
+      };
+      const onError = () => setMsg({ text: "Payment failed. Please try again.", type: "error" });
+
+      if (payMode === 0) {
+        await initiateRazorpay({ amount, onSuccess, onError });
+      } else if (payMode === 1) {
+        await initiateCashfree({ amount, onSuccess, onError });
       } else {
         await simulateAddMoney(amount);
         await fetchTransactions();
@@ -198,7 +201,7 @@ export default function DashboardPage() {
                 color: btn.primary ? "#fff" : "rgba(255,255,255,0.8)",
                 border: btn.primary ? "none" : "1px solid rgba(255,255,255,0.12)",
                 borderRadius: "10px", fontSize: "13px", fontWeight: 500,
-                cursor: "pointer", transition: "all 0.2s"
+                cursor: "pointer"
               }}>{btn.label}</button>
             ))}
           </div>
@@ -214,11 +217,11 @@ export default function DashboardPage() {
         }}>
           <p style={{ color: "#fff", fontSize: "14px", fontWeight: 600, marginBottom: "14px" }}>Add money to wallet</p>
           <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
-            {["Razorpay", "Simulate (Dev)"].map((label, i) => (
-              <button key={label} onClick={() => setUseReal(i === 0)} style={{
+            {["Razorpay", "Cashfree", "Simulate (Dev)"].map((label, i) => (
+              <button key={label} onClick={() => setPayMode(i)} style={{
                 padding: "7px 16px", borderRadius: "8px", fontSize: "12px", fontWeight: 500,
-                background: (i === 0 ? useReal : !useReal) ? "#6366f1" : "rgba(255,255,255,0.05)",
-                color: (i === 0 ? useReal : !useReal) ? "#fff" : "rgba(255,255,255,0.4)",
+                background: payMode === i ? "#6366f1" : "rgba(255,255,255,0.05)",
+                color: payMode === i ? "#fff" : "rgba(255,255,255,0.4)",
                 border: "none", cursor: "pointer"
               }}>{label}</button>
             ))}
@@ -268,7 +271,7 @@ export default function DashboardPage() {
             borderRadius: "16px", padding: "18px 12px",
             display: "flex", flexDirection: "column",
             alignItems: "center", gap: "10px",
-            cursor: "pointer", transition: "all 0.2s"
+            cursor: "pointer"
           }}>
             <div style={{
               width: "44px", height: "44px", borderRadius: "12px",
