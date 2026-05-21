@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     ASYNC_DATABASE_URL: str
     REDIS_URL: str = "redis://localhost:6379"
 
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000"]
+    ALLOWED_ORIGINS: str = "http://localhost:3000"
 
     OTP_EXPIRE_SECONDS: int = 300
 
@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_SECRET: str = ""
     CASHFREE_APP_ID: str = ""
     CASHFREE_SECRET_KEY: str = ""
+
+    def get_allowed_origins(self) -> List[str]:
+        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
 
     class Config:
         env_file = ".env"
