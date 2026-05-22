@@ -32,7 +32,7 @@ async def get_dashboard_stats(
     return stats
 
 
-@router.get("/users", response_model=dict)
+@router.get("/users")
 async def get_all_users(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -41,12 +41,7 @@ async def get_all_users(
     db: AsyncSession = Depends(get_db)
 ):
     result = await get_all_users_service(db, page, page_size, search)
-    return {
-        "users": [AdminUserResponse.model_validate(u) for u in result["users"]],
-        "total": result["total"],
-        "page": result["page"],
-        "page_size": result["page_size"]
-    }
+    return result["users"]
 
 
 @router.put("/users/{user_id}", response_model=AdminUserResponse)
@@ -106,3 +101,60 @@ async def review_kyc(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+
+@router.get("/bill-payments")
+async def get_all_bill_payments(
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    from sqlalchemy import select
+    from app.models.bill_payment import BillPayment
+    result = await db.execute(
+        select(BillPayment).order_by(BillPayment.created_at.desc()).limit(100)
+    )
+    bills = result.scalars().all()
+    return [
+        {
+            "id": str(b.id),
+            "user_id": str(b.user_id),
+            "category": b.category,
+            "biller_name": b.biller_name,
+            "consumer_number": b.consumer_number,
+            "amount": str(b.amount),
+            "status": b.status,
+            "reference_id": b.reference_id,
+            "operator_ref": b.operator_ref,
+            "created_at": b.created_at.isoformat(),
+        }
+        for b in bills
+    ]
+
+
+@router.get("/recharges")
+async def get_all_recharges(
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    from sqlalchemy import select
+    from app.models.recharge import Recharge
+    result = await db.execute(
+        select(Recharge).order_by(Recharge.created_at.desc()).limit(100)
+    )
+    recharges = result.scalars().all()
+    return [
+        {
+            "id": str(r.id),
+            "user_id": str(r.user_id),
+            "mobile_number": r.mobile_number,
+            "operator": r.operator,
+            "recharge_type": r.recharge_type,
+            "amount": str(r.amount),
+            "plan_description": r.plan_description,
+            "status": r.status,
+            "reference_id": r.reference_id,
+            "operator_ref": r.operator_ref,
+            "created_at": r.created_at.isoformat(),
+        }
+        for r in recharges
+    ]
