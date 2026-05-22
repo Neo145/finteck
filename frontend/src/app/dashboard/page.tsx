@@ -1,9 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useWalletStore } from "@/store/walletStore";
 import { useAuthStore } from "@/store/authStore";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import { useCashfree } from "@/hooks/useCashfree";
+import api from "@/lib/api";
 
 const quickActions = [
   { label: "Bus Booking", icon: "🚌", bg: "rgba(99,102,241,0.1)", href: "/dashboard/bus" },
@@ -12,11 +14,12 @@ const quickActions = [
   { label: "Bill Pay", icon: "🧾", bg: "rgba(245,158,11,0.1)", href: "/dashboard/bills" },
 ];
 
-export default function DashboardPage() {
+function DashboardContent() {
   const { wallet, transactions, total, fetchWallet, fetchTransactions, simulateAddMoney } = useWalletStore();
   const { user } = useAuthStore();
   const { initiatePayment: initiateRazorpay } = useRazorpay();
   const { initiatePayment: initiateCashfree } = useCashfree();
+  const searchParams = useSearchParams();
 
   const [showAddMoney, setShowAddMoney] = useState(false);
   const [addAmount, setAddAmount] = useState("");
@@ -31,6 +34,20 @@ export default function DashboardPage() {
     setDateStr(new Date().toLocaleDateString("en-IN", {
       weekday: "long", day: "numeric", month: "long", year: "numeric"
     }));
+
+    const order_id = searchParams.get("order_id");
+    if (order_id && order_id.startsWith("CF")) {
+      api.post(`/cashfree/verify?order_id=${order_id}`)
+        .then(() => {
+          fetchWallet();
+          fetchTransactions();
+          setMsg({ text: "Payment successful! Wallet credited.", type: "success" });
+          window.history.replaceState({}, "", "/dashboard");
+        })
+        .catch(() => {
+          setMsg({ text: "Payment verification failed. Contact support.", type: "error" });
+        });
+    }
   }, []);
 
   const handleAddMoney = async () => {
@@ -166,18 +183,8 @@ export default function DashboardPage() {
         border: "1px solid rgba(99,102,241,0.25)",
         position: "relative", overflow: "hidden"
       }}>
-        <div style={{
-          position: "absolute", top: "-60px", right: "-60px",
-          width: "200px", height: "200px",
-          background: "rgba(99,102,241,0.12)", borderRadius: "50%",
-          pointerEvents: "none"
-        }}></div>
-        <div style={{
-          position: "absolute", bottom: "-80px", left: "20px",
-          width: "160px", height: "160px",
-          background: "rgba(139,92,246,0.08)", borderRadius: "50%",
-          pointerEvents: "none"
-        }}></div>
+        <div style={{ position: "absolute", top: "-60px", right: "-60px", width: "200px", height: "200px", background: "rgba(99,102,241,0.12)", borderRadius: "50%", pointerEvents: "none" }}></div>
+        <div style={{ position: "absolute", bottom: "-80px", left: "20px", width: "160px", height: "160px", background: "rgba(139,92,246,0.08)", borderRadius: "50%", pointerEvents: "none" }}></div>
         <div style={{ position: "relative" }}>
           <p style={{ color: "rgba(165,180,252,0.6)", fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", fontWeight: 500, margin: 0 }}>
             Total wallet balance
@@ -210,11 +217,7 @@ export default function DashboardPage() {
 
       {/* Add Money Panel */}
       {showAddMoney && (
-        <div style={{
-          background: "#13131f",
-          border: "1px solid rgba(255,255,255,0.07)",
-          borderRadius: "18px", padding: "20px", marginBottom: "20px"
-        }}>
+        <div style={{ background: "#13131f", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "18px", padding: "20px", marginBottom: "20px" }}>
           <p style={{ color: "#fff", fontSize: "14px", fontWeight: 600, marginBottom: "14px" }}>Add money to wallet</p>
           <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
             {["Razorpay", "Cashfree", "Simulate (Dev)"].map((label, i) => (
@@ -232,12 +235,7 @@ export default function DashboardPage() {
               value={addAmount}
               onChange={(e) => setAddAmount(e.target.value)}
               placeholder="Enter amount"
-              style={{
-                flex: 1, background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "12px", padding: "12px 16px",
-                color: "#fff", fontSize: "14px", outline: "none"
-              }}
+              style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", padding: "12px 16px", color: "#fff", fontSize: "14px", outline: "none" }}
             />
             <button onClick={handleAddMoney} disabled={adding} style={{
               padding: "12px 24px",
@@ -251,10 +249,8 @@ export default function DashboardPage() {
           <div style={{ display: "flex", gap: "8px" }}>
             {[100, 500, 1000, 2000].map((amt) => (
               <button key={amt} onClick={() => setAddAmount(amt.toString())} style={{
-                padding: "6px 14px",
-                background: "rgba(255,255,255,0.05)",
-                color: "rgba(255,255,255,0.5)",
-                border: "1px solid rgba(255,255,255,0.07)",
+                padding: "6px 14px", background: "rgba(255,255,255,0.05)",
+                color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.07)",
                 borderRadius: "8px", fontSize: "12px", cursor: "pointer"
               }}>₹{amt}</button>
             ))}
@@ -265,23 +261,9 @@ export default function DashboardPage() {
       {/* Quick Actions */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "20px" }}>
         {quickActions.map((action) => (
-          <button key={action.label} style={{
-            background: "#13131f",
-            border: "1px solid rgba(255,255,255,0.06)",
-            borderRadius: "16px", padding: "18px 12px",
-            display: "flex", flexDirection: "column",
-            alignItems: "center", gap: "10px",
-            cursor: "pointer"
-          }}>
-            <div style={{
-              width: "44px", height: "44px", borderRadius: "12px",
-              background: action.bg,
-              display: "flex", alignItems: "center",
-              justifyContent: "center", fontSize: "22px"
-            }}>{action.icon}</div>
-            <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "12px", fontWeight: 500 }}>
-              {action.label}
-            </span>
+          <button key={action.label} style={{ background: "#13131f", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", padding: "18px 12px", display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", cursor: "pointer" }}>
+            <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: action.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px" }}>{action.icon}</div>
+            <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "12px", fontWeight: 500 }}>{action.label}</span>
           </button>
         ))}
       </div>
@@ -293,15 +275,9 @@ export default function DashboardPage() {
           { icon: "🔄", val: String(total), label: "Total transactions", sub: "↑ All time", subColor: "#818cf8", bg: "rgba(99,102,241,0.08)", border: "rgba(99,102,241,0.15)" },
           { icon: "🛡️", val: user?.kyc_status || "—", label: "KYC status", sub: "Action needed", subColor: "#fbbf24", bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.15)" },
         ].map((s) => (
-          <div key={s.label} style={{
-            background: s.bg,
-            border: `1px solid ${s.border}`,
-            borderRadius: "16px", padding: "18px"
-          }}>
+          <div key={s.label} style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: "16px", padding: "18px" }}>
             <span style={{ fontSize: "24px" }}>{s.icon}</span>
-            <p style={{ color: "#fff", fontSize: "20px", fontWeight: 700, margin: "10px 0 3px", letterSpacing: "-0.5px" }}>
-              {s.val}
-            </p>
+            <p style={{ color: "#fff", fontSize: "20px", fontWeight: 700, margin: "10px 0 3px", letterSpacing: "-0.5px" }}>{s.val}</p>
             <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "11px" }}>{s.label}</p>
             <p style={{ color: s.subColor, fontSize: "11px", marginTop: "6px" }}>{s.sub}</p>
           </div>
@@ -309,20 +285,10 @@ export default function DashboardPage() {
       </div>
 
       {/* Transactions */}
-      <div style={{
-        background: "#13131f",
-        border: "1px solid rgba(255,255,255,0.06)",
-        borderRadius: "18px", overflow: "hidden"
-      }}>
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "16px 20px",
-          borderBottom: "1px solid rgba(255,255,255,0.06)"
-        }}>
+      <div style={{ background: "#13131f", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "18px", overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           <p style={{ color: "#fff", fontSize: "14px", fontWeight: 600, margin: 0 }}>Recent transactions</p>
-          <button style={{ color: "#6366f1", fontSize: "12px", background: "none", border: "none", cursor: "pointer" }}>
-            View all →
-          </button>
+          <button style={{ color: "#6366f1", fontSize: "12px", background: "none", border: "none", cursor: "pointer" }}>View all →</button>
         </div>
         {transactions.length === 0 ? (
           <div style={{ padding: "48px", textAlign: "center" }}>
@@ -331,32 +297,18 @@ export default function DashboardPage() {
           </div>
         ) : (
           transactions.map((tx) => (
-            <div key={tx.id} style={{
-              display: "flex", alignItems: "center", gap: "14px",
-              padding: "14px 20px",
-              borderBottom: "1px solid rgba(255,255,255,0.03)"
-            }}>
-              <div style={{
-                width: "38px", height: "38px", borderRadius: "12px",
-                background: tx.transaction_type === "credit" ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: "16px", flexShrink: 0
-              }}>
+            <div key={tx.id} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+              <div style={{ width: "38px", height: "38px", borderRadius: "12px", background: tx.transaction_type === "credit" ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px", flexShrink: 0 }}>
                 {tx.transaction_type === "credit" ? "⬇️" : "⬆️"}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ color: "#fff", fontSize: "13px", fontWeight: 500, margin: 0, textTransform: "capitalize" }}>
                   {tx.category.replace(/_/g, " ")}
                 </p>
-                <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "11px", marginTop: "2px" }}>
-                  {fmtDate(tx.created_at)}
-                </p>
+                <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "11px", marginTop: "2px" }}>{fmtDate(tx.created_at)}</p>
               </div>
               <div style={{ textAlign: "right", flexShrink: 0 }}>
-                <p style={{
-                  fontSize: "14px", fontWeight: 700, margin: 0,
-                  color: tx.transaction_type === "credit" ? "#34d399" : "#f87171"
-                }}>
+                <p style={{ fontSize: "14px", fontWeight: 700, margin: 0, color: tx.transaction_type === "credit" ? "#34d399" : "#f87171" }}>
                   {tx.transaction_type === "credit" ? "+" : "-"}{fmt(tx.net_amount)}
                 </p>
                 <p style={{ color: "rgba(255,255,255,0.25)", fontSize: "11px", marginTop: "2px", textTransform: "capitalize" }}>
@@ -368,5 +320,13 @@ export default function DashboardPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div style={{ color: "#fff", padding: "20px" }}>Loading...</div>}>
+      <DashboardContent />
+    </Suspense>
   );
 }
