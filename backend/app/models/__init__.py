@@ -4,3 +4,4 @@ from app.models.wallet import TransactionType, TransactionStatus, TransactionCat
 from app.models.payment import Payment, PaymentStatus, PaymentGateway
 from app.models.kyc import KYC, KYCDocumentType, KYCStatus as KYCRecordStatus
 from app.models.payment_link import PaymentLink, PaymentLinkStatus
+from app.models.withdrawal import Withdrawal, WithdrawalStatus, WithdrawalMethod
